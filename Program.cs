@@ -1,140 +1,103 @@
-﻿using Azure.AI.OpenAI;
+﻿using System.Globalization;
+using System.Text;
 using Azure;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using fp_highlights;
+using Azure.AI.OpenAI;
 using CsvHelper;
-using System.Globalization;
-using Newtonsoft.Json.Linq;
+using Newtonsoft.Json;
 
+var INPUT_FOLDER_PATH = "./";
+var OUTPUT_FOLDER_PATH = "./output";
+var LONGTERM_BUCKET = OUTPUT_FOLDER_PATH;
 
-var builder = new ServiceCollection();
+var client = new OpenAIClient(new Uri("https://pico-gpt4.openai.azure.com/"), new AzureKeyCredential(Environment.GetEnvironmentVariable("AZURE_OPENAI_KEY")!));
 
-Uri azureOpenAIResourceUri = new("https://pico-gpt4.openai.azure.com/");
-AzureKeyCredential azureOpenAIApiKey = new(Environment.GetEnvironmentVariable("AZURE_OPENAI_API_KEY"));
+var questionList = new List<string> {
+    "Specify the primary focus or objectives of the review. What are the key research questions or goals that the review aims to address?"
+};
+var totalMinimumTokens = 500;
+var minimumTokens = 30;
 
-builder.AddSingleton(new OpenAIClient(azureOpenAIResourceUri, azureOpenAIApiKey));
-builder.AddSingleton<IDataProvider, DataProvider>();
-builder.AddTransient<IFpHighlightsService, FpHighlightsService>();
-
-var container = builder.BuildServiceProvider();
-var scope = container.CreateScope();
-
-var _logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-var _dataProvider = scope.ServiceProvider.GetRequiredService<IDataProvider>();
-var _fpHighlightsService = scope.ServiceProvider.GetRequiredService<IFpHighlightsService>();
-
-// See https://aka.ms/new-console-template for more information
-var articleIds = new List<int>();
+var articleId = new List<int>();
 var questions = new List<string>();
 var answers = new List<string>();
-var highlightedPdfs = new List<string>();
+var HighlightPdf = new List<string>();
 
-string fileName = "138103_20240115.csv";
-string inputFilePath = Path.Combine(_dataProvider.GetInputFolderPath(), fileName);
+var fileName = "138103_20240115.csv";
+var inputFileName = INPUT_FOLDER_PATH + fileName;
 
-using var reader = new StreamReader(inputFilePath);
-using var csv = new CsvReader(reader, CultureInfo.InvariantCulture);
 
-var records = csv.GetRecords<dynamic>();
+using var csvfile = new CsvReader(new StreamReader(inputFileName), CultureInfo.InvariantCulture);
+csvfile.Context.RegisterClassMap<ProjectMap>();
 
-foreach (var row in records)
+foreach (var row in csvfile.GetRecords<Project>())
 {
-    JObject embeddingJsonObject;
-    byte[] pdfBytes;
+    var parsedJson = new WholeObject();
+    var pdfMemoryStream = new MemoryStream();
     try
     {
-        var url = row.url;
-        var pdf_url = row.pdf_url;
+        var httpClient = new HttpClient();
+        var response = await httpClient.GetAsync(row.Url);
 
-        string embeddingJson;
-        using (HttpClient httpClient = new())
+        if (!response.IsSuccessStatusCode)
         {
-            embeddingJson = httpClient.GetStringAsync(url).Result;
+            System.Console.WriteLine("Not successful fetch for url: " + row.Url);
+            continue;
         }
 
-        embeddingJsonObject = JObject.Parse(embeddingJson);
+        var content = await response.Content.ReadAsStringAsync();
+        parsedJson = JsonConvert.DeserializeObject<WholeObject>(await response.Content.ReadAsStringAsync());
 
-        using (HttpClient httpClient = new())
+        response = await httpClient.GetAsync(row.PdfUrl);
+
+        if (!response.IsSuccessStatusCode)
         {
-            pdfBytes = httpClient.GetByteArrayAsync(pdf_url).Result;
+            System.Console.WriteLine("Not successful fetch for url: " + row.PdfUrl);
+            continue;
         }
+        
+        await response.Content.ReadAsStream().CopyToAsync(pdfMemoryStream);
     }
-    catch (Exception)
+    catch (Exception e)
     {
+        System.Console.WriteLine(e);
         continue;
     }
 
-    List<string> texts = [];
-    List<float[]> embeddings = [];
-    List<int> tokenSizes = [];
-    //List<string> boundaryBoxes = [];
+    // System.Console.WriteLine("Looking at the article\n" + JsonConvert.SerializeObject(parsedJson, Formatting.Indented));
 
-    for (int i = 0; i < embeddingJsonObject["article"]["text"].ToArray().Length; i++)
+    var article = parsedJson!.Article;
+
+    var embeddings = new List<float[]>();
+    var texts = new List<string>();
+    var tokenSizes = new List<int>();
+    var boundaryBoxes = new List<float[][]>();
+
+    for (int i = 0; i < article!.Text.Count; i++)
     {
-        string text = embeddingJsonObject["article"]["text"][i].ToString();
-        string embedding = embeddingJsonObject["article"]["embedding"][i].ToString();
-        int tokenSize = Convert.ToInt32(embeddingJsonObject["article"]["token_size"][i].ToString());
-        //string boundaryBox = embeddingJsonObject["article"]["boundary_boxes"][i].ToString();
+        if (article.TokenSizes[i] <= minimumTokens) continue;
 
-        if (tokenSize > _dataProvider.GetMinimumTokens())
-        {
-            texts.Add(text);
-            embeddings.Add(_fpHighlightsService.DecodeEmbedding(embedding));
-            tokenSizes.Add(tokenSize);
-            //boundaryBoxes.Add(boundaryBox);
-        }
+        texts.Add(article.Text[i]);
+        embeddings.Add(Utils.DecodeEmbeddings(article.Embedding[i]));
+        tokenSizes.Add(article.TokenSizes[i]);
+        boundaryBoxes.Add(JsonConvert.DeserializeObject<float[][]>(article.BoundaryBoxes[i])!);
     }
 
-    foreach(var q in _dataProvider.GetQuestionList())
-    {
-        var embeddedQuestion = _fpHighlightsService.EmbedText(q);
-        var scoreIndex = _fpHighlightsService.RankSentencesBySimilarity(embeddedQuestion, embeddings, tokenSizes, _fpHighlightsService.CosineSimilarity, _dataProvider.GetTotalMinimumTokens());
-        
-        List<string> bestSentences = [];
-        //List<string> bestBoundaryBoxes = [];
-        foreach (int idx in scoreIndex)
-        {
-            bestSentences.Add(texts[idx]);
+    foreach(var question in questionList) {
+        var embeddedQuestion = Utils.EmbedText(question, client);
+        var scoreIndex = Utils.RankSentencesBySimilarity(embeddedQuestion, embeddings, tokenSizes, totalMinimumTokens);
+        var bestSentences = string.Join(" ", scoreIndex.Select(x => texts[x]));
 
-            //List<string> boxes = JsonConvert.DeserializeObject<List<string>>(boundaryBoxes[idx]);
-            //bestBoundaryBoxes.AddRange(boxes);
+        var bestBoundaryBoxes = new List<float[]>();
+        foreach (var matrix in scoreIndex.Select(x => boundaryBoxes[x])) {
+            bestBoundaryBoxes.AddRange(matrix);
         }
 
-        string bestSentencesString = string.Join(" ", bestSentences);
-        string prompt = $"Data: {bestSentencesString}\nQuestion: {q}";
-        string answer = await _fpHighlightsService.GetResponse(prompt);
+        var prompt = new StringBuilder().Append("Data: ").AppendLine(bestSentences).Append("Question :").Append(question).ToString();
+        var answer = Utils.GptResponse(prompt, client);
 
-        string localPdfFile = Path.Combine(Path.GetTempPath(), $"{row.article_id}.pdf");
-        Console.WriteLine($">>>>>>>{localPdfFile}");
-
-        //fpHighlightsService.HighlightPdf(pdfBytes, bestBoundaryBoxes, localPdfFile);
-
-        //string highlightedPdfUrl = fpHighlightsService.UploadPdf(s3Client, dataProvider.GetLongtermBucket(), localPdfFile, row.project_id, row.article_id);
-
-        File.Delete(localPdfFile);
-
-        articleIds.Add(row.article_id);
-        questions.Add(q);
-        answers.Add(answer);
-        //highlightedPdfs.Add(highlightedPdfUrl);
+        var localPdfPath = Path.Combine(OUTPUT_FOLDER_PATH, row.ArticleId + ".pdf");
+        Utils.HighlightPdf(pdfMemoryStream, bestBoundaryBoxes, localPdfPath);
     }
+
+    return;
 }
-
-List<string> OUTPUT_COLUMNS = ["article_id", "questions", "answers", "highlighted_pdfs"];
-List<List<object>> result = [];
-
-for (int i = 0; i < articleIds.Count; i++)
-{
-    List<object> row =
-    [
-        articleIds[i],
-        questions[i],
-        answers[i],
-        highlightedPdfs[i]
-    ];
-
-    result.Add(row);
-}
-
-
