@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.8.34408.163
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "fp-highlights", "fp-highlights.csproj", "{812BD6EB-98CF-4A6C-989E-E721C656B37A}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{812BD6EB-98CF-4A6C-989E-E721C656B37A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{812BD6EB-98CF-4A6C-989E-E721C656B37A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{812BD6EB-98CF-4A6C-989E-E721C656B37A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{812BD6EB-98CF-4A6C-989E-E721C656B37A}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {6DB40FE8-0A8E-4B21-A3D1-C41715F4EC7E}
+	EndGlobalSection
+EndGlobal
