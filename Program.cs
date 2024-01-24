@@ -32,7 +32,6 @@ csvfile.Context.RegisterClassMap<ProjectMap>();
 foreach (var row in csvfile.GetRecords<Project>())
 {
     var parsedJson = new WholeObject();
-    var pdfMemoryStream = new MemoryStream();
     try
     {
         var httpClient = new HttpClient();
@@ -46,16 +45,6 @@ foreach (var row in csvfile.GetRecords<Project>())
 
         var content = await response.Content.ReadAsStringAsync();
         parsedJson = JsonConvert.DeserializeObject<WholeObject>(await response.Content.ReadAsStringAsync());
-
-        response = await httpClient.GetAsync(row.PdfUrl);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            System.Console.WriteLine("Not successful fetch for url: " + row.PdfUrl);
-            continue;
-        }
-        
-        await response.Content.ReadAsStream().CopyToAsync(pdfMemoryStream);
     }
     catch (Exception e)
     {
@@ -96,7 +85,7 @@ foreach (var row in csvfile.GetRecords<Project>())
         var answer = Utils.GptResponse(prompt, client);
 
         var localPdfPath = Path.Combine(OUTPUT_FOLDER_PATH, row.ArticleId + ".pdf");
-        Utils.HighlightPdf(pdfMemoryStream, bestBoundaryBoxes, localPdfPath);
+        Utils.HighlightPdf(row.PdfUrl, bestBoundaryBoxes, localPdfPath);
     }
 
     return;
