@@ -15,22 +15,20 @@ AzureKeyCredential azureOpenAIApiKey = new(Environment.GetEnvironmentVariable("A
 
 builder.AddSingleton(new OpenAIClient(azureOpenAIResourceUri, azureOpenAIApiKey));
 builder.AddSingleton<IDataProvider, DataProvider>();
-builder.AddSingleton<IFpHighlightsService, FpHighlightsService>();
-
+builder.AddTransient<IFpHighlightsService, FpHighlightsService>();
 
 var container = builder.BuildServiceProvider();
 var scope = container.CreateScope();
 
-var dependency = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+var _logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 var _dataProvider = scope.ServiceProvider.GetRequiredService<IDataProvider>();
 var _fpHighlightsService = scope.ServiceProvider.GetRequiredService<IFpHighlightsService>();
-var _openAIClient = scope.ServiceProvider.GetRequiredService<OpenAIClient>();
 
 // See https://aka.ms/new-console-template for more information
-List<int> articleIds = [];
-List<string> questions = [];
-List<string> answers = [];
-List<string> highlightedPdfs = [];
+var articleIds = new List<int>();
+var questions = new List<string>();
+var answers = new List<string>();
+var highlightedPdfs = new List<string>();
 
 string fileName = "138103_20240115.csv";
 string inputFilePath = Path.Combine(_dataProvider.GetInputFolderPath(), fileName);
@@ -90,7 +88,7 @@ foreach (var row in records)
 
     foreach(var q in _dataProvider.GetQuestionList())
     {
-        var embeddedQuestion = _fpHighlightsService.EmbedText(q, _openAIClient);
+        var embeddedQuestion = _fpHighlightsService.EmbedText(q);
         var scoreIndex = _fpHighlightsService.RankSentencesBySimilarity(embeddedQuestion, embeddings, tokenSizes, _fpHighlightsService.CosineSimilarity, _dataProvider.GetTotalMinimumTokens());
         
         List<string> bestSentences = [];
@@ -105,7 +103,7 @@ foreach (var row in records)
 
         string bestSentencesString = string.Join(" ", bestSentences);
         string prompt = $"Data: {bestSentencesString}\nQuestion: {q}";
-        string answer = await _fpHighlightsService.GetResponse(prompt, _openAIClient);
+        string answer = await _fpHighlightsService.GetResponse(prompt);
 
         string localPdfFile = Path.Combine(Path.GetTempPath(), $"{row.article_id}.pdf");
         Console.WriteLine($">>>>>>>{localPdfFile}");

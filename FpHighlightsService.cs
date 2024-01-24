@@ -3,6 +3,7 @@ using Amazon.S3.Model;
 using Amazon.S3.Transfer;
 using Azure;
 using Azure.AI.OpenAI;
+using Microsoft.Extensions.Logging;
 using PdfSharp.Drawing;
 using PdfSharp.Pdf;
 using PdfSharp.Pdf.IO;
@@ -18,6 +19,17 @@ namespace fp_highlights
 {
     public class FpHighlightsService : IFpHighlightsService
     {
+        private readonly OpenAIClient _client;
+        private readonly AmazonS3Client _s3Client;
+        private readonly ILogger<FpHighlightsService> _logger;
+
+        public FpHighlightsService(OpenAIClient client, AmazonS3Client s3Client, ILogger<FpHighlightsService> logger)
+        {
+            _client = client;
+            _s3Client = s3Client;
+            _logger = logger;
+        }
+
         public float[] DecodeEmbedding(string embedding)
         {
             byte[] decodedBytes = Convert.FromBase64String(embedding);
@@ -35,7 +47,7 @@ namespace fp_highlights
             return decodedEmbedding;
         }
 
-        public float[] EmbedText(string text, OpenAIClient client)
+        public float[] EmbedText(string text)
         {
             EmbeddingsOptions embeddingOptions = new()
             {
@@ -43,7 +55,7 @@ namespace fp_highlights
                 Input = { text },
             };
 
-            var returnValue = client.GetEmbeddings(embeddingOptions);
+            var returnValue = _client.GetEmbeddings(embeddingOptions);
 
             return returnValue.Value.Data[0].Embedding.ToArray();
         }
@@ -87,7 +99,7 @@ namespace fp_highlights
             return scoreIndex;
         }
 
-        public async Task<string> GetResponse(string prompt, OpenAIClient client)
+        public async Task<string> GetResponse(string prompt)
         {
             string systemMessage = "You answer questions using the available information given to you";
 
@@ -103,7 +115,7 @@ namespace fp_highlights
                 Temperature = 0.7f
             };
 
-            Response<ChatCompletions> response = await client.GetChatCompletionsAsync(chatCompletionsOptions);
+            Response<ChatCompletions> response = await _client.GetChatCompletionsAsync(chatCompletionsOptions);
             ChatResponseMessage responseMessage = response.Value.Choices[0].Message;
 
             return responseMessage.Content;
@@ -133,13 +145,13 @@ namespace fp_highlights
             document.Save(pdfOutputPath);
         }
 
-        public string UploadPdf(AmazonS3Client s3Client, string LONGTERM_BUCKET, string filePath, string projectId, string articleId)
+        public string UploadPdf(string LONGTERM_BUCKET, string filePath, string projectId, string articleId)
         {
             var currentDateTime = DateTime.Now.ToString("dd-MM-yy_HH:mm:ss:fff");
             var s3FilePath = $"experimental_pdfs/{projectId}/{articleId}_{currentDateTime}.pdf";
             try
             {
-                TransferUtility fileTransferUtility = new TransferUtility(s3Client);
+                TransferUtility fileTransferUtility = new TransferUtility(_s3Client);
                 fileTransferUtility.Upload(filePath, LONGTERM_BUCKET, s3FilePath);
                 //logger
             }
@@ -160,24 +172,23 @@ namespace fp_highlights
                 Protocol = Protocol.HTTPS
             };
 
-            string url = s3Client.GetPreSignedURL(request);
-            return url;
+            return _s3Client.GetPreSignedURL(request);
         }
     }
 
     public interface IFpHighlightsService
     {
         float[] DecodeEmbedding(string embedding);
-        float[] EmbedText(string text, OpenAIClient client);
+        float[] EmbedText(string text);
         float CosineSimilarity(float[] vec1, float[] vec2);
         List<int> RankSentencesBySimilarity(float[] embeddedQuestion,
             List<float[]> embeddings, 
             List<int> tokenSizes, 
             Func<float[], float[], float> cosineSimilarity, 
             int TOTAL_MINIMUM_TOKENS);
-        Task<string> GetResponse(string prompt, OpenAIClient client);
+        Task<string> GetResponse(string prompt);
         void HighlightPdf(string pdfFilePath, float[][] bestBoundaryBoxes, string pdfOutputPath);
-        string UploadPdf(AmazonS3Client s3Client, string LONGTERM_BUCKET, string filePath, string projectId, string articleId);
+        string UploadPdf(string LONGTERM_BUCKET, string filePath, string projectId, string articleId);
     }
 }
 
