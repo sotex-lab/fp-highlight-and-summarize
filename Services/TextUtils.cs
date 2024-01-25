@@ -1,21 +1,19 @@
 ﻿using Azure.AI.OpenAI;
 using Azure;
-using fp_highlights_new.Services.Interfaces;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using FpHighlights.Services.Interfaces;
+using Microsoft.Extensions.Logging;
 
-namespace fp_highlights_new.Services
+namespace FpHighlights.Services
 {
-    public class TextUtils : ITextUtils
+    internal class TextUtils : ITextUtils
     {
         private readonly OpenAIClient _openAIClient;
+        private readonly ILogger<TextUtils> _logger;
 
-        public TextUtils(OpenAIClient openAIClient)
+        public TextUtils(OpenAIClient openAIClient, ILogger<TextUtils> logger)
         {
             _openAIClient = openAIClient;
+            _logger = logger;
         }
 
         public float[] DecodeEmbeddings(string embeddings)
@@ -54,7 +52,7 @@ namespace fp_highlights_new.Services
 
             if (norms == 0)
             {
-                System.Console.WriteLine("Zero vector detected in cosine similarity computation.");
+                _logger.LogDebug("Zero vector detected in cosine similarity computation.");
                 return 0;
             }
 

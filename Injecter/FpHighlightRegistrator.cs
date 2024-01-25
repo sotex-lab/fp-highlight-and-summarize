@@ -1,16 +1,11 @@
 ﻿using Azure.AI.OpenAI;
 using Azure;
-using fp_highlights_new.DataProvider;
-using fp_highlights_new.Services.Interfaces;
-using fp_highlights_new.Services;
+using FpHighlights.ProviderData;
+using FpHighlights.Services.Interfaces;
+using FpHighlights.Services;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace fp_highlights_new.Injecter
+namespace FpHighlights.Injecter
 {
     public static class FpHighlightRegistrator
     {
@@ -19,7 +14,7 @@ namespace fp_highlights_new.Injecter
             var config = func();
 
             services.AddSingleton(new OpenAIClient(config.OpenAIConfig.Uri, config.OpenAIConfig.Credentials));
-            services.AddSingleton<IDataProvider, DataProvider.DataProvider>(_ => new DataProvider.DataProvider(config.DataProviderConfig.InputFolderPath, config.DataProviderConfig.OutputFolderPath, config.DataProviderConfig.TotalMinimumTokens, config.DataProviderConfig.MinimumTokens));
+            services.AddSingleton<IDataProvider, DataProvider>(_ => new DataProvider(config.DataProviderConfig.InputFolderPath, config.DataProviderConfig.OutputFolderPath, config.DataProviderConfig.TotalMinimumTokens, config.DataProviderConfig.MinimumTokens));
             services.AddTransient<ITextUtils, TextUtils>();
             services.AddTransient<IPdfUtils, PdfUtils>();
             services.AddTransient<IFpHighlightAndSummarizeService, FpHighlightAndSummarizeService>();

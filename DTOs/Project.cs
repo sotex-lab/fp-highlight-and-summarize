@@ -1,6 +1,6 @@
 using CsvHelper.Configuration;
 
-public class Project {
+internal class Project {
     public int ProjectId { get; set; }
     public int ArticleId { get; set; }
     public string Url { get; set; }
@@ -13,7 +13,7 @@ public class Project {
     public string CiteId { get; set; }
 }
 
-public sealed class ProjectMap : ClassMap<Project> {
+internal sealed class ProjectMap : ClassMap<Project> {
     public ProjectMap()
     {
         Map(x => x.ProjectId).Name("project_id");
@@ -21,13 +21,13 @@ public sealed class ProjectMap : ClassMap<Project> {
         Map(x => x.Url).Name("url");   
         Map(x => x.PdfUrl).Name("pdf_url");
         Map(x => x.IsFulltext).Name("is_fulltext").TypeConverterOption.BooleanValues(true, true, "1")
-            .TypeConverterOption.BooleanValues(false, true, "0", String.Empty);
+            .TypeConverterOption.BooleanValues(false, true, "0", string.Empty);
         Map(x => x.IsDuplicate).Name("is_duplicate").TypeConverterOption.BooleanValues(true, true, "1")
-            .TypeConverterOption.BooleanValues(false, true, "0", String.Empty);
+            .TypeConverterOption.BooleanValues(false, true, "0", string.Empty);
         Map(x => x.IsIncludeAb).Name("is_include_ab").TypeConverterOption.BooleanValues(true, true, "1")
-            .TypeConverterOption.BooleanValues(false, true, "0", String.Empty);
+            .TypeConverterOption.BooleanValues(false, true, "0", string.Empty);
         Map(x => x.IsIncludeFt).Name("is_include_ft").TypeConverterOption.BooleanValues(true, true, "1")
-            .TypeConverterOption.BooleanValues(false, true, "0", String.Empty);
+            .TypeConverterOption.BooleanValues(false, true, "0", string.Empty);
         Map(x => x.Tags).Name("tags");
         Map(x => x.CiteId).Name("cite_id");
     }

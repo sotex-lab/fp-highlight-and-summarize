@@ -1,12 +1,6 @@
-﻿using System.Globalization;
-using System.Text;
-using Azure;
-using Azure.AI.OpenAI;
-using CsvHelper;
-using fp_highlights_new.DataProvider;
-using fp_highlights_new.Injecter;
-using fp_highlights_new.Services;
-using fp_highlights_new.Services.Interfaces;
+﻿using Azure;
+using FpHighlights.Injecter;
+using FpHighlights.Services.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
 
 var builder = new ServiceCollection();
@@ -26,14 +20,17 @@ builder.AddFpHighlightService(() => new FpHighlightConfig
         MinimumTokens = 30
     }
 });
+
+builder.AddLogging();
+
 var container = builder.BuildServiceProvider();
 var scope = container.CreateScope();
 
 var service = scope.ServiceProvider.GetRequiredService<IFpHighlightAndSummarizeService>();
 
-List<string> QUESTION_LIST = new List<string> {
+List<string> questionList = new List<string> {
             "How do various socioeconomic, racial, and geographical factors influence pregnancy outcomes and maternal health across different populations in the United States?",
             "Was the allocation sequence random?",
         };
 
-await service.HighlightPdf("138103_20240115.csv", QUESTION_LIST);
+await service.HighlightPdf("138103_20240115.csv", questionList);

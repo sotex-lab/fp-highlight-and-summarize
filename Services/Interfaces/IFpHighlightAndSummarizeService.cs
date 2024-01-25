@@ -1,13 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using FpHighlights.DTOs;
 
-namespace fp_highlights_new.Services.Interfaces
+namespace FpHighlights.Services.Interfaces
 {
     public interface IFpHighlightAndSummarizeService
     {
-        Task HighlightPdf(string fileName, List<string> questionList, int articleCount = 0);
+        Task<IEnumerable<Response>> HighlightPdf(string fileName, List<string> questionList, int articleCount = 0);
     }
 }

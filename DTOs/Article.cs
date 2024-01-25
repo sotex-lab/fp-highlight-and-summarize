@@ -1,6 +1,6 @@
 using Newtonsoft.Json;
 
-public class Article {
+internal class Article {
     [JsonProperty("text")]
     public List<string> Text { get; set; }
     [JsonProperty("token_size")]
@@ -11,7 +11,7 @@ public class Article {
     public List<string> BoundaryBoxes { get; set; }
 }
 
-public class WholeObject {
+internal class WholeObject {
 
     [JsonProperty("article")]
     public Article Article { get; set; }

@@ -1,16 +1,11 @@
-﻿using fp_highlights_new.Services.Interfaces;
+﻿using FpHighlights.Services.Interfaces;
 using iTextSharp.awt.geom;
 using iTextSharp.text.pdf;
 using iTextSharp.text;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
-namespace fp_highlights_new.Services
+namespace FpHighlights.Services
 {
-    public class PdfUtils : IPdfUtils
+    internal class PdfUtils : IPdfUtils
     {
         public void HighlightPdf(string pdfUrl, List<float[]> bestBoundaryBoxes, string pdfOutputPath)
         {

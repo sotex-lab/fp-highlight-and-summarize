@@ -1,44 +1,35 @@
-﻿using Azure.AI.OpenAI;
-using Azure;
-using CsvHelper;
-using fp_highlights_new.DataProvider;
-using fp_highlights_new.Services.Interfaces;
-using Microsoft.Extensions.DependencyInjection;
+﻿using CsvHelper;
+using FpHighlights.ProviderData;
+using FpHighlights.Services.Interfaces;
 using Newtonsoft.Json;
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
 using System.Text;
-using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
+using FpHighlights.DTOs;
+using CsvHelper.Expressions;
 
-namespace fp_highlights_new.Services
+namespace FpHighlights.Services
 {
     public class FpHighlightAndSummarizeService : IFpHighlightAndSummarizeService
     {
         private readonly IDataProvider _dataProvider;
         private readonly ITextUtils _textUtils;
         private readonly IPdfUtils _pdfUtils;
+        private readonly ILogger<FpHighlightAndSummarizeService> _logger;
 
-        public FpHighlightAndSummarizeService(IDataProvider dataProvider, ITextUtils textUtils, IPdfUtils pdfUtils)
+        public FpHighlightAndSummarizeService(IDataProvider dataProvider, ITextUtils textUtils, IPdfUtils pdfUtils, ILogger<FpHighlightAndSummarizeService> logger)
         {
             _dataProvider = dataProvider;
             _textUtils = textUtils;
             _pdfUtils = pdfUtils;
+            _logger = logger;
         }
 
-        public async Task HighlightPdf(string fileName, List<string> questionList, int articleCount = 0)
+        public async Task<IEnumerable<Response>> HighlightPdf(string fileName, List<string> questionList, int articleCount = 0)
         {
-            var articleId = new List<int>();
-            var isIncludeAb = new List<bool>();
-            var isIncludeFt = new List<bool>();
-            var citeId = new List<string>();
-            var questions = new List<string>();
-            var answers = new List<string>();
-            var HighlightPdf = new List<string>();
-
             var inputFileName = _dataProvider.GetInputFolderPath() + fileName;
             int tempArticleCount = 0;
+            var result = new List<Response>();
 
             using var csvfile = new CsvReader(new StreamReader(inputFileName), CultureInfo.InvariantCulture);
             csvfile.Context.RegisterClassMap<ProjectMap>();
@@ -67,20 +58,18 @@ namespace fp_highlights_new.Services
 
                     if (!response.IsSuccessStatusCode)
                     {
-                        Console.WriteLine("Not successful fetch for url: " + row.Url);
+                        _logger.LogDebug("Not successful fetch for url: " + row.Url);
                         continue;
                     }
 
-                    var content = await response.Content.ReadAsStringAsync();
                     parsedJson = JsonConvert.DeserializeObject<WholeObject>(await response.Content.ReadAsStringAsync());
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine(e);
+                    _logger.LogDebug(e.Message);
                     continue;
                 }
 
-                // System.Console.WriteLine("Looking at the article\n" + JsonConvert.SerializeObject(parsedJson, Formatting.Indented));
 
                 var article = parsedJson!.Article;
 
@@ -99,6 +88,8 @@ namespace fp_highlights_new.Services
                     boundaryBoxes.Add(JsonConvert.DeserializeObject<float[][]>(article.BoundaryBoxes[i])!);
                 }
 
+                var currentResponse = new Response() { ArticleId = row.ArticleId, Responses = new List<string>() };
+
                 foreach (var question in questionList)
                 {
                     var embeddedQuestion = _textUtils.EmbedText(question);
@@ -112,14 +103,15 @@ namespace fp_highlights_new.Services
                     }
 
                     var prompt = new StringBuilder().Append("Data: ").AppendLine(bestSentences).Append("Question :").Append(question).ToString();
-                    var answer = _textUtils.GptResponse(prompt);
+                    var answer = await _textUtils.GptResponse(prompt);
+                    currentResponse.Responses.Add(answer);
 
                     var localPdfPath = Path.Combine(_dataProvider.GetOutputFolderPath(), row.ArticleId + ".pdf");
                     _pdfUtils.HighlightPdf(row.PdfUrl, bestBoundaryBoxes, localPdfPath);
                 }
-
-                return;
+                result.Add(currentResponse);
             }
+            return result;
         }
     }
 }
