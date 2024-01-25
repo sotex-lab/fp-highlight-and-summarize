@@ -3,90 +3,37 @@ using System.Text;
 using Azure;
 using Azure.AI.OpenAI;
 using CsvHelper;
-using Newtonsoft.Json;
+using fp_highlights_new.DataProvider;
+using fp_highlights_new.Injecter;
+using fp_highlights_new.Services;
+using fp_highlights_new.Services.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 
-var INPUT_FOLDER_PATH = "./";
-var OUTPUT_FOLDER_PATH = "./output";
-var LONGTERM_BUCKET = OUTPUT_FOLDER_PATH;
+var builder = new ServiceCollection();
 
-var client = new OpenAIClient(new Uri("https://pico-gpt4.openai.azure.com/"), new AzureKeyCredential(Environment.GetEnvironmentVariable("AZURE_OPENAI_KEY")!));
-
-var questionList = new List<string> {
-    "Specify the primary focus or objectives of the review. What are the key research questions or goals that the review aims to address?"
-};
-var totalMinimumTokens = 500;
-var minimumTokens = 30;
-
-var articleId = new List<int>();
-var questions = new List<string>();
-var answers = new List<string>();
-var HighlightPdf = new List<string>();
-
-var fileName = "138103_20240115.csv";
-var inputFileName = INPUT_FOLDER_PATH + fileName;
-
-
-using var csvfile = new CsvReader(new StreamReader(inputFileName), CultureInfo.InvariantCulture);
-csvfile.Context.RegisterClassMap<ProjectMap>();
-
-foreach (var row in csvfile.GetRecords<Project>())
+builder.AddFpHighlightService(() => new FpHighlightConfig
 {
-    var parsedJson = new WholeObject();
-    try
+    OpenAIConfig = new OpenAIConfig
     {
-        var httpClient = new HttpClient();
-        var response = await httpClient.GetAsync(row.Url);
-
-        if (!response.IsSuccessStatusCode)
-        {
-            System.Console.WriteLine("Not successful fetch for url: " + row.Url);
-            continue;
-        }
-
-        var content = await response.Content.ReadAsStringAsync();
-        parsedJson = JsonConvert.DeserializeObject<WholeObject>(await response.Content.ReadAsStringAsync());
-    }
-    catch (Exception e)
+        Uri = new Uri("https://pico-gpt4.openai.azure.com/"),
+        Credentials = new AzureKeyCredential(Environment.GetEnvironmentVariable("AZURE_OPENAI_KEY")!)
+    },
+    DataProviderConfig = new DataProviderConfig
     {
-        System.Console.WriteLine(e);
-        continue;
+        InputFolderPath = Directory.GetCurrentDirectory() + "/",
+        OutputFolderPath = Directory.GetCurrentDirectory(),
+        TotalMinimumTokens = 500,
+        MinimumTokens = 30
     }
+});
+var container = builder.BuildServiceProvider();
+var scope = container.CreateScope();
 
-    // System.Console.WriteLine("Looking at the article\n" + JsonConvert.SerializeObject(parsedJson, Formatting.Indented));
+var service = scope.ServiceProvider.GetRequiredService<IFpHighlightAndSummarizeService>();
 
-    var article = parsedJson!.Article;
+List<string> QUESTION_LIST = new List<string> {
+            "How do various socioeconomic, racial, and geographical factors influence pregnancy outcomes and maternal health across different populations in the United States?",
+            "Was the allocation sequence random?",
+        };
 
-    var embeddings = new List<float[]>();
-    var texts = new List<string>();
-    var tokenSizes = new List<int>();
-    var boundaryBoxes = new List<float[][]>();
-
-    for (int i = 0; i < article!.Text.Count; i++)
-    {
-        if (article.TokenSizes[i] <= minimumTokens) continue;
-
-        texts.Add(article.Text[i]);
-        embeddings.Add(Utils.DecodeEmbeddings(article.Embedding[i]));
-        tokenSizes.Add(article.TokenSizes[i]);
-        boundaryBoxes.Add(JsonConvert.DeserializeObject<float[][]>(article.BoundaryBoxes[i])!);
-    }
-
-    foreach(var question in questionList) {
-        var embeddedQuestion = Utils.EmbedText(question, client);
-        var scoreIndex = Utils.RankSentencesBySimilarity(embeddedQuestion, embeddings, tokenSizes, totalMinimumTokens);
-        var bestSentences = string.Join(" ", scoreIndex.Select(x => texts[x]));
-
-        var bestBoundaryBoxes = new List<float[]>();
-        foreach (var matrix in scoreIndex.Select(x => boundaryBoxes[x])) {
-            bestBoundaryBoxes.AddRange(matrix);
-        }
-
-        var prompt = new StringBuilder().Append("Data: ").AppendLine(bestSentences).Append("Question :").Append(question).ToString();
-        var answer = Utils.GptResponse(prompt, client);
-
-        var localPdfPath = Path.Combine(OUTPUT_FOLDER_PATH, row.ArticleId + ".pdf");
-        Utils.HighlightPdf(row.PdfUrl, bestBoundaryBoxes, localPdfPath);
-    }
-
-    return;
-}
+await service.HighlightPdf("138103_20240115.csv", QUESTION_LIST);
