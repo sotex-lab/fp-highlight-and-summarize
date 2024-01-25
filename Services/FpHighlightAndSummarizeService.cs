@@ -6,7 +6,6 @@ using System.Globalization;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using FpHighlights.DTOs;
-using CsvHelper.Expressions;
 
 namespace FpHighlights.Services
 {
@@ -41,13 +40,9 @@ namespace FpHighlights.Services
                     continue;
                 }
 
-                if (articleCount != 0)
+                if (articleCount != 0 && ++tempArticleCount > articleCount)
                 {
-                    tempArticleCount++;
-                    if (tempArticleCount > articleCount)
-                    {
-                        break;
-                    }
+                    break;
                 }
 
                 var parsedJson = new WholeObject();

@@ -82,7 +82,7 @@ namespace FpHighlights.Services
 
             ChatCompletionsOptions chatCompletionsOptions = new()
             {
-                DeploymentName = "gpt-3.5-turbo",
+                DeploymentName = "gpt-35-turbo",
                 Messages =
                 {
                     new ChatRequestSystemMessage(systemMessage),
