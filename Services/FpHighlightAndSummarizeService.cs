@@ -6,6 +6,12 @@ using System.Globalization;
 using System.Text;
 using Microsoft.Extensions.Logging;
 using FpHighlights.DTOs;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.IO;
+using System;
+using System.Linq;
+using System.Net.Http;
 
 namespace FpHighlights.Services
 {

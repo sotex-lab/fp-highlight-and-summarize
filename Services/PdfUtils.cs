@@ -2,6 +2,10 @@
 using iTextSharp.awt.geom;
 using iTextSharp.text.pdf;
 using iTextSharp.text;
+using System.Collections.Generic;
+using System.IO;
+using System;
+using System.Linq;
 
 namespace FpHighlights.Services
 {

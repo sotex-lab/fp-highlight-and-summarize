@@ -1,4 +1,6 @@
-﻿namespace FpHighlights.DTOs
+﻿using System.Collections.Generic;
+
+namespace FpHighlights.DTOs
 {
     public class Response
     {

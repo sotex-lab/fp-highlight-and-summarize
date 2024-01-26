@@ -1,4 +1,6 @@
-﻿namespace FpHighlights.Services.Interfaces
+﻿using System.Collections.Generic;
+
+namespace FpHighlights.Services.Interfaces
 {
     public interface IPdfUtils
     {

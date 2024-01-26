@@ -2,6 +2,10 @@
 using Azure;
 using FpHighlights.Services.Interfaces;
 using Microsoft.Extensions.Logging;
+using System.Linq;
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace FpHighlights.Services
 {
@@ -28,7 +32,7 @@ namespace FpHighlights.Services
 
         public float[] EmbedText(string text)
         {
-            EmbeddingsOptions embeddingOptions = new()
+            EmbeddingsOptions embeddingOptions = new EmbeddingsOptions()
             {
                 DeploymentName = "text-embedding-ada-002",
                 Input = { text },
@@ -80,7 +84,7 @@ namespace FpHighlights.Services
         {
             string systemMessage = "You are an intelligent and adaptive research assistant. Your primary task is to comprehend and respond to various types of questions. This involves analyzing and synthesizing information from the provided text and replying with a brief response. Get your information form the `Material and Methods` section and the `results` section.  Ingnore abstract and citations content.";
 
-            ChatCompletionsOptions chatCompletionsOptions = new()
+            ChatCompletionsOptions chatCompletionsOptions = new ChatCompletionsOptions()
             {
                 DeploymentName = "gpt-35-turbo",
                 Messages =

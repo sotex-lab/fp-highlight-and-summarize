@@ -1,4 +1,6 @@
 ﻿using FpHighlights.DTOs;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace FpHighlights.Services.Interfaces
 {

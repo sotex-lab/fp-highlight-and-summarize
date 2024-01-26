@@ -1,4 +1,7 @@
-﻿namespace FpHighlights.Services.Interfaces
+﻿using System.Collections.Generic;
+using System.Threading.Tasks;
+
+namespace FpHighlights.Services.Interfaces
 {
     public interface ITextUtils
     {
