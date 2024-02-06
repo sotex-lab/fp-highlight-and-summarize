@@ -1,9 +1,11 @@
-﻿using System.Collections.Generic;
+﻿using PdfSharp.Pdf;
+using System.Collections.Generic;
 
 namespace FpHighlights.Services.Interfaces
 {
     public interface IPdfUtils
     {
-        void HighlightPdf(string pdfUrl, List<float[]> bestBoundaryBoxes, string pdfOutputPath);
+        PdfDocument? OpenPdf(string pdfUrl);
+        void HighlightPdf(PdfDocument document, List<float[]> bestBoundaryBoxes);
     }
 }

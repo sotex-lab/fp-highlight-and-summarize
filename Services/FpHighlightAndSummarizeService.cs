@@ -12,6 +12,8 @@ using System.IO;
 using System;
 using System.Linq;
 using System.Net.Http;
+using PdfSharp.Pdf;
+using System.Net;
 
 namespace FpHighlights.Services
 {
@@ -91,25 +93,28 @@ namespace FpHighlights.Services
 
                 var currentResponse = new Response() { ArticleId = row.ArticleId, Responses = new List<string>() };
 
+                var document = _pdfUtils.OpenPdf(row.PdfUrl);
+                if (document is null) continue;
+
+                var bestBoundaryBoxes = new List<float[]>();
                 foreach (var question in questionList)
                 {
                     var embeddedQuestion = _textUtils.EmbedText(question);
                     var scoreIndex = _textUtils.RankSentencesBySimilarity(embeddedQuestion, embeddings, tokenSizes, _dataProvider.GetTotalMinimumTokens());
                     var bestSentences = string.Join(" ", scoreIndex.Select(x => texts[x]));
 
-                    var bestBoundaryBoxes = new List<float[]>();
                     foreach (var matrix in scoreIndex.Select(x => boundaryBoxes[x]))
                     {
-                        bestBoundaryBoxes.AddRange(matrix);
+                        bestBoundaryBoxes.AddRange(matrix.Except(bestBoundaryBoxes));
                     }
 
                     var prompt = new StringBuilder().Append("Data: ").AppendLine(bestSentences).Append("Question :").Append(question).ToString();
                     var answer = await _textUtils.GptResponse(prompt);
                     currentResponse.Responses.Add(answer);
-
-                    var localPdfPath = Path.Combine(_dataProvider.GetOutputFolderPath(), row.ArticleId + ".pdf");
-                    _pdfUtils.HighlightPdf(row.PdfUrl, bestBoundaryBoxes, localPdfPath);
                 }
+                _pdfUtils.HighlightPdf(document, bestBoundaryBoxes);
+                var localPdfPath = Path.Combine(_dataProvider.GetOutputFolderPath(), row.ArticleId + ".pdf");
+                document.Save(localPdfPath);
                 result.Add(currentResponse);
             }
             return result;
